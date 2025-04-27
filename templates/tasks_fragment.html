@@ -1,0 +1,33 @@
+<div id="tasks">
+  {% if jobs %}
+  <table class="w-full text-sm mb-8">
+    <thead>
+      <tr class="text-left font-semibold border-b">
+        <th class="py-2">Title</th>
+        <th class="py-2">Schedule</th>
+        <th class="py-2 w-10"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for j in jobs %}
+      <tr class="border-b last:border-b-0">
+        <td class="py-2">{{ j.name }}</td>
+        <td class="py-2 text-gray-600">{{ j.pretty }}</td>
+        <td class="py-2">
+          <form
+            hx-delete="/jobs/{{ j.id }}"
+            hx-target="#tasks"
+            hx-swap="outerHTML"
+            hx-confirm="Delete this task?">
+            <button class="text-red-600 hover:underline" title="delete">✕</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="mb-8 text-gray-600">No tasks yet – add one below.</p>
+  {% endif %}
+</div>
+

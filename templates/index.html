@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Your tasks</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen bg-gray-50 text-gray-900">
+  <div class="max-w-xl mx-auto py-8 px-4">
+    <h1 class="text-3xl font-bold mb-6">Your tasks</h1>
+
+    <!-- first render: include the fragment -->
+    {% include "tasks_fragment.html" %}
+
+    <!-- new-task form -------------------------------------------- -->
+    <form
+      class="space-y-4"
+      hx-post="/add"
+      hx-target="#tasks"
+      hx-swap="outerHTML">
+
+      <div>
+        <label class="block mb-1 text-sm font-medium">Topic</label>
+        <input name="topic" class="w-full border rounded px-3 py-2" required />
+      </div>
+
+      <div>
+        <label class="block mb-1 text-sm font-medium">Title</label>
+        <input name="title" class="w-full border rounded px-3 py-2" required />
+      </div>
+
+      <div>
+        <label class="block mb-1 text-sm font-medium">Body</label>
+        <input name="body" class="w-full border rounded px-3 py-2" required />
+      </div>
+
+      <div>
+        <label class="block mb-1 text-sm font-medium">Cron</label>
+        <input name="cron" placeholder="*/30 * * * *"
+               class="w-full border rounded px-3 py-2" required />
+      </div>
+
+      <button class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        Add
+      </button>
+    </form>
+  </div>
+
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</body>
+</html>
+
