@@ -43,7 +43,7 @@ Navigate to <http://localhost:8000> and add your first task.
 
 | Variable     | Default                         | Purpose                          |
 |--------------|---------------------------------|----------------------------------|
-| `NTFY_URL`   | `http://localhost:80`           | Base URL of your ntfy server     |
+| `NTFY_URL`   | `https://ntfy.sh`               | Base URL of your ntfy server     |
 | `TZ`         | `Europe/Berlin`                 | Scheduler timezone               |
 
 Set variables in your shell (`export VAR=value`) or in a `.env` file if you use a dotenv loader.
