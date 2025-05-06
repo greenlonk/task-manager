@@ -9,9 +9,11 @@ dependencies = [
     "cron-descriptor>=1.4.5",
     "fastapi>=0.115.12",
     "httpx>=0.28.1",
+    "icalendar>=5.0.10",
     "jinja2>=3.1.6",
     "pyproject-toml>=0.1.0",
     "python-multipart>=0.0.20",
+    "pytz>=2025.2",
     "sqlalchemy>=2.0.40",
     "uvicorn>=0.34.2",
 ]

@@ -3,52 +3,489 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Your tasks</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Task Manager</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/cronstrue@latest/dist/cronstrue.min.js"></script>
+  <script src="https://unpkg.com/feather-icons"></script>
 </head>
 
-<body class="min-h-screen bg-gray-50 text-gray-900">
-  <div class="max-w-xl mx-auto py-8 px-4">
-    <h1 class="text-3xl font-bold mb-6">Your tasks</h1>
+<body>
+  <!-- SVG Definitions for gradients -->
+  <svg class="svg-defs">
+    <defs>
+      <linearGradient id="form-title-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#4facfe" />
+        <stop offset="100%" stop-color="#00f2c3" />
+      </linearGradient>
+    </defs>
+  </svg>
 
-    <!-- first render: include the fragment -->
-    {% include "tasks_fragment.html" %}
+  <!-- Theme Toggle Button -->
+  <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode">
+    <!-- Icon will be set by JavaScript -->
+  </button>
 
-    <!-- new-task form -------------------------------------------- -->
-    <form
-      class="space-y-4"
-      hx-post="/add"
-      hx-target="#tasks"
-      hx-swap="outerHTML">
-
-      <div>
-        <label class="block mb-1 text-sm font-medium">Topic</label>
-        <input name="topic" class="w-full border rounded px-3 py-2" required />
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">Task Manager</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#tasks-section" class="sidebar-link active" data-section="tasks-section">
+        <i data-feather="list"></i> Tasks
+      </a>
+      <a href="#analytics-section" class="sidebar-link" data-section="analytics-section">
+        <i data-feather="bar-chart-2"></i> Analytics
+      </a>
+      <a href="#categories-section" class="sidebar-link" data-section="categories-section">
+        <i data-feather="tag"></i> Categories
+      </a>
+      <a href="#settings-section" class="sidebar-link" data-section="settings-section">
+        <i data-feather="settings"></i> Settings
+      </a>
+    </nav>
+    
+    <div class="sidebar-footer">
+      <div class="calendar-export">
+        <a href="/tasks.ics" class="export-link">
+          <i data-feather="calendar"></i> Export to Calendar
+        </a>
       </div>
-
-      <div>
-        <label class="block mb-1 text-sm font-medium">Title</label>
-        <input name="title" class="w-full border rounded px-3 py-2" required />
-      </div>
-
-      <div>
-        <label class="block mb-1 text-sm font-medium">Body</label>
-        <input name="body" class="w-full border rounded px-3 py-2" required />
-      </div>
-
-      <div>
-        <label class="block mb-1 text-sm font-medium">Cron</label>
-        <input name="cron" placeholder="*/30 * * * *"
-               class="w-full border rounded px-3 py-2" required />
-      </div>
-
-      <button class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-        Add
-      </button>
-    </form>
+    </div>
   </div>
 
-  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <div class="main-content">
+    <!-- Header card with stats -->
+    <div class="card header-card">
+      <div class="header-content">
+        <h1>Task Manager</h1>
+        <p>Set up notifications and reminders with beautiful, easy scheduling</p>
+      </div>
+      
+      <div class="stats-container">
+        <div class="stat-item">
+          <div class="stat-icon">
+            <i data-feather="list"></i>
+          </div>
+          <div class="stat-text">
+            <div class="stat-value" id="total-tasks-count">{{ stats.total_count }}</div>
+            <div class="stat-label">Total Tasks</div>
+          </div>
+        </div>
+        
+        <div class="stat-item">
+          <div class="stat-icon">
+            <i data-feather="clock"></i>
+          </div>
+          <div class="stat-text">
+            <div class="stat-value" id="active-tasks-count">{{ stats.status_counts.get('pending', 0) }}</div>
+            <div class="stat-label">Active</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main content sections -->
+    <div id="tasks-section" class="content-section active">
+      <div class="grid-layout">
+        <!-- Tasks List -->
+        <div class="tasks-container card">
+          <div class="card-header">
+            <h2>Scheduled Tasks</h2>
+            
+            <div class="filters">
+              <select id="status-filter" hx-get="/tasks" hx-target="#tasks" hx-trigger="change" name="status" hx-include="#category-filter,#priority-filter,#sort-filter,#sort-direction">
+                <option value="">All Statuses</option>
+                {% for status in TaskStatus %}
+                <option value="{{ status.value }}">{{ status.name.title() }}</option>
+                {% endfor %}
+              </select>
+              
+              <select id="category-filter" hx-get="/tasks" hx-target="#tasks" hx-trigger="change" name="category_id" hx-include="#status-filter,#priority-filter,#sort-filter,#sort-direction">
+                <option value="">All Categories</option>
+                {% for category in categories %}
+                <option value="{{ category.id }}">{{ category.name }}</option>
+                {% endfor %}
+              </select>
+              
+              <select id="priority-filter" hx-get="/tasks" hx-target="#tasks" hx-trigger="change" name="priority" hx-include="#status-filter,#category-filter,#sort-filter,#sort-direction">
+                <option value="">All Priorities</option>
+                {% for priority in TaskPriority %}
+                <option value="{{ priority.value }}">{{ priority.name.title() }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            
+            <div class="sorting">
+              <select id="sort-filter" hx-get="/tasks" hx-target="#tasks" hx-trigger="change" name="sort_by" hx-include="#status-filter,#category-filter,#priority-filter,#sort-direction">
+                <option value="created_at">Created Date</option>
+                <option value="title">Title</option>
+                <option value="priority">Priority</option>
+                <option value="status">Status</option>
+                <option value="last_run">Last Run</option>
+              </select>
+              
+              <select id="sort-direction" hx-get="/tasks" hx-target="#tasks" hx-trigger="change" name="sort_desc" hx-include="#status-filter,#category-filter,#priority-filter,#sort-filter">
+                <option value="true">Descending</option>
+                <option value="false">Ascending</option>
+              </select>
+            </div>
+          </div>
+          
+          <!-- Tasks will be rendered here -->
+          {% include "tasks_fragment.html" %}
+        </div>
+
+        <!-- Add Task Form -->
+        <div class="add-task-form card">
+          <h2 class="form-title">
+            <i data-feather="plus-circle"></i>
+            Add New Task
+          </h2>
+          
+          <form id="new-task-form" hx-post="/add" hx-target="#tasks" hx-swap="outerHTML" hx-encoding="multipart/form-data">
+            <div class="form-section">
+              <div class="form-group">
+                <label>Title</label>
+                <input type="text" name="title" placeholder="Task title" required />
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Category</label>
+                  <select name="category_id">
+                    <option value="">Select Category</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}" data-color="{{ category.color }}">{{ category.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+  
+                <div class="form-group">
+                  <label>Priority</label>
+                  <select name="priority">
+                    {% for priority in TaskPriority %}
+                    <option value="{{ priority.value }}" {% if priority.value == 'medium' %}selected{% endif %}>{{ priority.name.title() }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <div class="form-section">
+              <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" placeholder="Task description (optional)"></textarea>
+              </div>
+              
+              <div class="form-group">
+                <label>Tags</label>
+                <input type="text" name="tags" placeholder="work, important, project (comma separated)" />
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h3 class="section-title">Notification Settings</h3>
+              
+              <div class="form-group">
+                <label>Topic</label>
+                <input type="text" name="topic" placeholder="e.g., home-alerts" required />
+              </div>
+
+              <div class="form-group">
+                <label>Message</label>
+                <textarea name="body" placeholder="Notification message" required></textarea>
+              </div>
+              
+              <div class="form-group">
+                <label>Notification Sound (optional)</label>
+                <select name="notification_sound">
+                  <option value="">Default Sound</option>
+                  <option value="default">Default</option>
+                  <option value="ta-da">Ta-da</option>
+                  <option value="ding">Ding</option>
+                  <option value="chord">Chord</option>
+                  <option value="bell">Bell</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <h3 class="section-title">Schedule</h3>
+              
+              <div class="form-group">
+                <label>Schedule (Cron Format)</label>
+                <div class="cron-input-container">
+                  <input type="text" name="cron" id="cron-input" placeholder="e.g., 0 18 * * MON" required />
+                  <div class="cron-preview" id="cron-preview">Preview will appear here</div>
+                </div>
+              </div>
+              
+              <div class="cron-quick-select">
+                <button type="button" class="cron-preset" data-cron="0 9 * * *">Daily (9 AM)</button>
+                <button type="button" class="cron-preset" data-cron="0 9 * * 1-5">Weekdays (9 AM)</button>
+                <button type="button" class="cron-preset" data-cron="0 10 * * 0,6">Weekends (10 AM)</button>
+                <button type="button" class="cron-preset" data-cron="0 18 * * MON">Every Monday (6 PM)</button>
+                <button type="button" class="cron-preset" data-cron="0 20 1 * *">Monthly (1st day at 8 PM)</button>
+              </div>
+            </div>
+            
+            <div class="form-section">
+              <h3 class="section-title">Attachment</h3>
+              
+              <div class="form-group file-upload">
+                <label for="attachment" class="file-label">
+                  <i data-feather="paperclip"></i>
+                  <span>Choose a file</span>
+                </label>
+                <input type="file" id="attachment" name="attachment" class="file-input" />
+                <div class="file-name" id="file-name">No file selected</div>
+              </div>
+            </div>
+  
+            <div class="form-actions">
+              <button type="reset" class="btn btn-outline">Reset</button>
+              <button type="submit" class="btn btn-primary">Schedule Task</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Analytics Section -->
+    <div id="analytics-section" class="content-section">
+      <div class="analytics-grid">
+        <div class="card analytics-card">
+          <h2 class="card-title">Task Status Overview</h2>
+          <div class="chart-container">
+            <canvas id="status-chart"></canvas>
+          </div>
+        </div>
+        
+        <div class="card analytics-card">
+          <h2 class="card-title">Priority Distribution</h2>
+          <div class="chart-container">
+            <canvas id="priority-chart"></canvas>
+          </div>
+        </div>
+        
+        <div class="card analytics-card">
+          <h2 class="card-title">Tasks by Category</h2>
+          <div class="chart-container">
+            <canvas id="category-chart"></canvas>
+          </div>
+        </div>
+        
+        <div class="card analytics-card">
+          <h2 class="card-title">Completion Rate</h2>
+          <div class="chart-container completion-rate">
+            <canvas id="completion-chart"></canvas>
+            <div class="completion-stats">
+              <div class="completion-rate-value">{{ "{:.1%}".format(stats.status_counts.get('completed', 0) / stats.total_count if stats.total_count > 0 else 0) }}</div>
+              <div class="completion-label">Completion Rate</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Categories Section -->
+    <div id="categories-section" class="content-section">
+      <div class="grid-layout categories-layout">
+        <div class="card">
+          <h2 class="card-title">Categories</h2>
+          
+          {% include "categories_fragment.html" %}
+        </div>
+        
+        <div class="card">
+          <h2 class="form-title">
+            <i data-feather="tag"></i>
+            Add New Category
+          </h2>
+          
+          <form hx-post="/categories" hx-target="#categories-list" hx-swap="outerHTML">
+            <div class="form-group">
+              <label>Category Name</label>
+              <input type="text" name="name" placeholder="Category name" required />
+            </div>
+            
+            <div class="form-group">
+              <label>Color</label>
+              <input type="color" name="color" value="#4facfe" />
+            </div>
+            
+            <div class="form-group">
+              <label>Icon</label>
+              <select name="icon">
+                <option value="tag">Tag</option>
+                <option value="briefcase">Work</option>
+                <option value="home">Home</option>
+                <option value="heart">Health</option>
+                <option value="dollar-sign">Finance</option>
+                <option value="book">Education</option>
+                <option value="shopping-bag">Shopping</option>
+                <option value="users">Family</option>
+                <option value="coffee">Personal</option>
+              </select>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Add Category</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Settings Section -->
+    <div id="settings-section" class="content-section">
+      <div class="card settings-card">
+        <h2 class="card-title">Settings</h2>
+        
+        <div class="settings-form">
+          <div class="form-group">
+            <label>Default Notification Topic</label>
+            <input type="text" id="default-topic" placeholder="Default topic" />
+          </div>
+          
+          <div class="form-group">
+            <label>Default Time Zone</label>
+            <select id="default-timezone">
+              <option value="Europe/Berlin">Europe/Berlin</option>
+              <option value="America/New_York">America/New_York</option>
+              <option value="America/Los_Angeles">America/Los_Angeles</option>
+              <option value="Asia/Tokyo">Asia/Tokyo</option>
+              <option value="Australia/Sydney">Australia/Sydney</option>
+            </select>
+          </div>
+          
+          <button type="button" class="btn btn-primary" id="save-settings">Save Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Task detail modal -->
+  <div id="task-modal" class="modal">
+    <div class="modal-content">
+      <!-- Modal content will be loaded here -->
+    </div>
+  </div>
+  
+  <!-- Scripts -->
+  <script src="/static/js/app.js"></script>
+  <script src="/static/js/charts.js"></script>
+  
+  <script>
+    // Initialize Feather icons
+    document.addEventListener('DOMContentLoaded', function() {
+      feather.replace();
+      
+      // Initialize cron description
+      const cronInput = document.getElementById('cron-input');
+      const cronPreview = document.getElementById('cron-preview');
+      
+      if (cronInput && cronPreview) {
+        cronInput.addEventListener('input', updateCronPreview);
+        
+        // Initialize cron presets
+        document.querySelectorAll('.cron-preset').forEach(button => {
+          button.addEventListener('click', function() {
+            cronInput.value = this.dataset.cron;
+            updateCronPreview();
+          });
+        });
+        
+        function updateCronPreview() {
+          try {
+            const cronExpression = cronInput.value.trim();
+            if (cronExpression) {
+              const description = cronstrue.toString(cronExpression);
+              cronPreview.textContent = description;
+              cronPreview.classList.remove('error');
+            } else {
+              cronPreview.textContent = 'Enter a cron expression';
+              cronPreview.classList.remove('error');
+            }
+          } catch (e) {
+            cronPreview.textContent = 'Invalid cron expression';
+            cronPreview.classList.add('error');
+          }
+        }
+      }
+      
+      // File input preview
+      const fileInput = document.getElementById('attachment');
+      const fileName = document.getElementById('file-name');
+      
+      if (fileInput && fileName) {
+        fileInput.addEventListener('change', function() {
+          if (this.files.length > 0) {
+            fileName.textContent = this.files[0].name;
+          } else {
+            fileName.textContent = 'No file selected';
+          }
+        });
+      }
+      
+      // Task detail modal
+      document.body.addEventListener('click', function(e) {
+        if (e.target.classList.contains('view-task-btn')) {
+          const taskId = e.target.dataset.taskId;
+          const modal = document.getElementById('task-modal');
+          
+          // Show modal and load content
+          modal.classList.add('show');
+          modal.querySelector('.modal-content').innerHTML = '<div class="loader"></div>';
+          
+          fetch(`/task/${taskId}`)
+            .then(response => response.text())
+            .then(html => {
+              modal.querySelector('.modal-content').innerHTML = html;
+              feather.replace();
+            });
+        }
+        
+        // Close modal when clicking outside
+        if (e.target.classList.contains('modal')) {
+          e.target.classList.remove('show');
+        }
+      });
+      
+      // Close modal when clicking close button (delegated)
+      document.body.addEventListener('click', function(e) {
+        if (e.target.classList.contains('close-modal')) {
+          const modal = document.getElementById('task-modal');
+          modal.classList.remove('show');
+        }
+      });
+      
+      // Section navigation
+      document.querySelectorAll('.sidebar-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+          e.preventDefault();
+          
+          // Update active link
+          document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+          this.classList.add('active');
+          
+          // Show corresponding section
+          const sectionId = this.dataset.section;
+          document.querySelectorAll('.content-section').forEach(section => {
+            section.classList.remove('active');
+          });
+          document.getElementById(sectionId).classList.add('active');
+          
+          // Update charts if analytics section is active
+          if (sectionId === 'analytics-section') {
+            if (window.updateCharts) {
+              window.updateCharts();
+            }
+          }
+        });
+      });
+    });
+  </script>
 </body>
 </html>
-

@@ -1,0 +1,56 @@
+<div id="categories-list" class="categories-list">
+  {% if categories %}
+  <table class="categories-table">
+    <thead>
+      <tr>
+        <th>Color</th>
+        <th>Name</th>
+        <th>Icon</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for category in categories %}
+      <tr>
+        <td>
+          <div class="category-color" style="background-color: {{ category.color }}"></div>
+        </td>
+        <td>{{ category.name }}</td>
+        <td>
+          {% if category.icon %}
+          <i data-feather="{{ category.icon }}"></i>
+          {% endif %}
+        </td>
+        <td>
+          <div class="category-actions">
+            <button class="action-btn edit-category-btn" 
+                   hx-get="/categories/{{ category.id }}/edit"
+                   hx-target="#edit-category-form"
+                   hx-swap="outerHTML">
+              <i data-feather="edit"></i>
+            </button>
+            
+            <button class="action-btn delete-category-btn"
+                   hx-delete="/categories/{{ category.id }}"
+                   hx-target="#categories-list"
+                   hx-swap="outerHTML"
+                   hx-confirm="Delete this category? All tasks will be set to uncategorized.">
+              <i data-feather="trash-2"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">
+      <i data-feather="tag"></i>
+    </div>
+    <p>No categories defined yet</p>
+  </div>
+  {% endif %}
+  
+  <div id="edit-category-form"></div>
+</div>
